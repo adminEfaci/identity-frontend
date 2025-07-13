@@ -5,14 +5,17 @@ This module provides mapping functionality to convert Role entities
 to/from DTOs for API requests and responses.
 """
 
-from typing import Optional, List, Dict, Any, Set
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any
 
-from app.modules.identity.domain.entities.role.role import Role
 from app.modules.identity.application.dtos.response import (
-    RoleResponse, RoleDetailResponse, RoleAssignmentResponse,
-    PermissionMatrixResponse, PermissionDelegationResponse
+    PermissionDelegationResponse,
+    PermissionMatrixResponse,
+    RoleAssignmentResponse,
+    RoleDetailResponse,
+    RoleResponse,
 )
+from app.modules.identity.domain.entities.role.role import Role
 
 
 class RoleMapper:
@@ -41,7 +44,7 @@ class RoleMapper:
     @staticmethod
     def to_detail_response(
         role: Role,
-        all_roles: Optional[Dict[str, Role]] = None,
+        all_roles: dict[str, Role] | None = None,
         include_hierarchy: bool = True
     ) -> RoleDetailResponse:
         """Convert Role entity to detailed RoleDetailResponse DTO.
@@ -75,7 +78,7 @@ class RoleMapper:
         # Get child roles if hierarchy is requested
         child_roles = []
         if include_hierarchy and all_roles:
-            for role_id, role_entity in all_roles.items():
+            for _, role_entity in all_roles.items():
                 if role_entity.parent_role_id == role.id:
                     child_roles.append(RoleMapper.to_response(role_entity))
         
@@ -98,7 +101,7 @@ class RoleMapper:
         role: Role,
         assigned_by: str,
         assigned_at: datetime,
-        expires_at: Optional[datetime] = None
+        expires_at: datetime | None = None
     ) -> RoleAssignmentResponse:
         """Create RoleAssignmentResponse DTO.
         
@@ -130,9 +133,9 @@ class RoleMapper:
     
     @staticmethod
     def to_permission_matrix_response(
-        roles: List[Role],
-        test_permissions: List[str],
-        user_permissions: Optional[Dict[str, List[str]]] = None
+        roles: list[Role],
+        test_permissions: list[str],
+        user_permissions: dict[str, list[str]] | None = None
     ) -> PermissionMatrixResponse:
         """Create PermissionMatrixResponse DTO.
         
@@ -183,12 +186,12 @@ class RoleMapper:
         from_user_id: str,
         to_user_id: str,
         permission: str,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
         can_sub_delegate: bool = False,
-        delegated_at: datetime = None,
-        expires_at: datetime = None,
-        conditions: Optional[Dict[str, Any]] = None,
+        delegated_at: datetime | None = None,
+        expires_at: datetime | None = None,
+        conditions: dict[str, Any] | None = None,
         usage_count: int = 0
     ) -> PermissionDelegationResponse:
         """Create PermissionDelegationResponse DTO.
@@ -218,14 +221,14 @@ class RoleMapper:
             resource_type=resource_type,
             resource_id=resource_id,
             can_sub_delegate=can_sub_delegate,
-            delegated_at=delegated_at or datetime.utcnow(),
+            delegated_at=delegated_at or datetime.now(UTC),
             expires_at=expires_at,
             conditions=conditions,
             usage_count=usage_count
         )
     
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> Role:
+    def from_dict(data: dict[str, Any]) -> Role:
         """Create Role entity from dictionary data.
         
         Args:
@@ -250,8 +253,8 @@ class RoleMapper:
             permissions=data.get('permissions', []),
             is_system=data.get('is_system', False),
             is_active=data.get('is_active', True),
-            created_at=datetime.fromisoformat(data['created_at']) if 'created_at' in data else datetime.utcnow(),
-            updated_at=datetime.fromisoformat(data['updated_at']) if 'updated_at' in data else datetime.utcnow(),
+            created_at=datetime.fromisoformat(data['created_at']) if 'created_at' in data else datetime.now(UTC),
+            updated_at=datetime.fromisoformat(data['updated_at']) if 'updated_at' in data else datetime.now(UTC),
             metadata=data.get('metadata', {})
         )
         
@@ -260,7 +263,9 @@ class RoleMapper:
             role.parent_roles = [UUID(pid) for pid in data['parent_roles']]
         
         if 'inheritance_mode' in data:
-            from app.modules.identity.domain.entities.role.role_enums import InheritanceMode
+            from app.modules.identity.domain.entities.role.role_enums import (
+                InheritanceMode,
+            )
             role.inheritance_mode = InheritanceMode(data['inheritance_mode'])
         
         if 'permission_rules' in data:
@@ -284,13 +289,13 @@ class RoleMapper:
         if 'template_variables' in data:
             role.template_variables = data['template_variables']
         
-        if 'expires_at' in data and data['expires_at']:
+        if data.get('expires_at'):
             role.expires_at = datetime.fromisoformat(data['expires_at'])
         
         return role
     
     @staticmethod
-    def get_role_summary(role: Role, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def get_role_summary(role: Role, context: dict[str, Any] | None = None) -> dict[str, Any]:
         """Get a summary representation of a role.
         
         Args:
@@ -326,7 +331,7 @@ class RoleMapper:
         }
     
     @staticmethod
-    def validate_role_hierarchy(roles: List[Role]) -> Dict[str, Any]:
+    def validate_role_hierarchy(roles: list[Role]) -> dict[str, Any]:
         """Validate role hierarchy for circular references and conflicts.
         
         Args:
@@ -380,3 +385,8 @@ class RoleMapper:
             'template_roles': len([r for r in roles if r.is_template]),
             'expired_roles': len([r for r in roles if r.is_expired()])
         }
+
+__all__ = [
+    "RoleMapper",
+]
+

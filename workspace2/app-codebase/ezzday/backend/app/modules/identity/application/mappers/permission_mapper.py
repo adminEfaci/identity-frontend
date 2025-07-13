@@ -5,15 +5,17 @@ This module provides mapping functionality to convert Permission entities
 to/from DTOs for API requests and responses.
 """
 
-from typing import Optional, List, Dict, Any, Set
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
-from app.modules.identity.domain.entities.role.permission import Permission
 from app.modules.identity.application.dtos.response import (
-    PermissionResponse, PermissionCheckResponse, PermissionGrantResponse,
-    PermissionAuditResponse
+    PermissionAuditResponse,
+    PermissionCheckResponse,
+    PermissionGrantResponse,
+    PermissionResponse,
 )
+from app.modules.identity.domain.entities.role.permission import Permission
 
 
 class PermissionMapper:
@@ -34,7 +36,9 @@ class PermissionMapper:
         action = permission.action
         
         # Map domain permission scope to DTO scope
-        from app.modules.identity.domain.entities.user.user_enums import PermissionScope as DTOPermissionScope
+        from app.modules.identity.domain.entities.user.user_enums import (
+            PermissionScope as DTOPermissionScope,
+        )
         
         scope = DTOPermissionScope.GLOBAL  # Default scope
         if permission.scope:
@@ -82,7 +86,9 @@ class PermissionMapper:
         name = permission_code.replace('.', ' ').replace('_', ' ').title()
         description = f"Allows {action} operations on {resource}"
         
-        from app.modules.identity.domain.entities.user.user_enums import PermissionScope as DTOPermissionScope
+        from app.modules.identity.domain.entities.user.user_enums import (
+            PermissionScope as DTOPermissionScope,
+        )
         
         return PermissionResponse(
             id=uuid4(),  # Generate temporary ID
@@ -98,10 +104,10 @@ class PermissionMapper:
         user_id: str,
         permission: str,
         allowed: bool,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        reason: Optional[str] = None,
-        denial_code: Optional[str] = None
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        reason: str | None = None,
+        denial_code: str | None = None
     ) -> PermissionCheckResponse:
         """Create PermissionCheckResponse DTO.
         
@@ -134,10 +140,10 @@ class PermissionMapper:
         permission: str,
         granted_by: str,
         granted_at: datetime,
-        expires_at: Optional[datetime] = None,
-        conditions: Optional[Dict[str, Any]] = None,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None
+        expires_at: datetime | None = None,
+        conditions: dict[str, Any] | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None
     ) -> PermissionGrantResponse:
         """Create PermissionGrantResponse DTO.
         
@@ -154,7 +160,9 @@ class PermissionMapper:
         Returns:
             PermissionGrantResponse DTO
         """
-        from app.modules.identity.domain.entities.user.user_enums import PermissionScope as DTOPermissionScope
+        from app.modules.identity.domain.entities.user.user_enums import (
+            PermissionScope as DTOPermissionScope,
+        )
         
         # Default scope
         scope = DTOPermissionScope.GLOBAL
@@ -189,7 +197,7 @@ class PermissionMapper:
         audit_id: str,
         period_start: datetime,
         period_end: datetime,
-        permission_changes: List[Dict[str, Any]]
+        permission_changes: list[dict[str, Any]]
     ) -> PermissionAuditResponse:
         """Create PermissionAuditResponse DTO.
         
@@ -237,7 +245,7 @@ class PermissionMapper:
                     'user_id': user_id,
                     'permission': permission,
                     'action': change.get('action'),
-                    'timestamp': change.get('timestamp', datetime.utcnow().isoformat()),
+                    'timestamp': change.get('timestamp', datetime.now(UTC).isoformat()),
                     'risk_level': 'high',
                     'reason': 'Privileged permission granted'
                 })
@@ -258,7 +266,7 @@ class PermissionMapper:
         )
     
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> Permission:
+    def from_dict(data: dict[str, Any]) -> Permission:
         """Create Permission entity from dictionary data.
         
         Args:
@@ -291,12 +299,14 @@ class PermissionMapper:
         
         # Create scope if present
         scope = None
-        if 'scope' in data and data['scope']:
-            from app.modules.identity.domain.value_objects.permission_scope import PermissionScope
+        if data.get('scope'):
+            from app.modules.identity.domain.value_objects.permission_scope import (
+                PermissionScope,
+            )
             scope = PermissionScope.from_dict(data['scope'])
         
         # Create permission
-        permission = Permission(
+        return Permission(
             id=permission_id,
             name=data['name'],
             code=data['code'],
@@ -314,16 +324,15 @@ class PermissionMapper:
             requires_mfa=data.get('requires_mfa', False),
             tags=set(data.get('tags', [])),
             metadata=data.get('metadata', {}),
-            created_at=datetime.fromisoformat(data['created_at']) if 'created_at' in data else datetime.utcnow(),
+            created_at=datetime.fromisoformat(data['created_at']) if 'created_at' in data else datetime.now(UTC),
             created_by=UUID(data['created_by']) if data.get('created_by') else None,
             modified_at=datetime.fromisoformat(data['modified_at']) if data.get('modified_at') else None,
             modified_by=UUID(data['modified_by']) if data.get('modified_by') else None
         )
         
-        return permission
     
     @staticmethod
-    def get_permission_hierarchy(permissions: List[Permission]) -> Dict[str, Any]:
+    def get_permission_hierarchy(permissions: list[Permission]) -> dict[str, Any]:
         """Build permission hierarchy from list of permissions.
         
         Args:
@@ -333,12 +342,12 @@ class PermissionMapper:
             Dictionary representing the permission hierarchy
         """
         # Build permission lookup
-        permission_lookup = {str(perm.id): perm for perm in permissions}
+        {str(perm.id): perm for perm in permissions}
         
         # Find root permissions (no parent)
         roots = [perm for perm in permissions if perm.parent_id is None]
         
-        def build_tree(permission: Permission) -> Dict[str, Any]:
+        def build_tree(permission: Permission) -> dict[str, Any]:
             """Recursively build permission tree."""
             children = [
                 perm for perm in permissions
@@ -369,9 +378,9 @@ class PermissionMapper:
     
     @staticmethod
     def analyze_permission_usage(
-        permissions: List[Permission],
-        usage_data: Dict[str, int]
-    ) -> Dict[str, Any]:
+        permissions: list[Permission],
+        usage_data: dict[str, int]
+    ) -> dict[str, Any]:
         """Analyze permission usage patterns.
         
         Args:
@@ -438,3 +447,7 @@ class PermissionMapper:
             'average_usage': sum(usage_data.values()) / len(usage_data) if usage_data else 0,
             'issues': issues
         }
+
+__all__ = [
+    "PermissionMapper",
+]

@@ -5,14 +5,16 @@ This module provides mapping functionality to convert Session entities
 to/from DTOs for API requests and responses.
 """
 
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
-from app.modules.identity.domain.entities.session.session import Session
 from app.modules.identity.application.dtos.response import (
-    SessionResponse, SessionDetailResponse, ActiveSessionsResponse,
-    ConcurrentSessionsResponse, SessionTransferResponse
+    ActiveSessionsResponse,
+    ConcurrentSessionsResponse,
+    SessionDetailResponse,
+    SessionResponse,
+    SessionTransferResponse,
 )
+from app.modules.identity.domain.entities.session.session import Session
 
 
 class SessionMapper:
@@ -78,8 +80,9 @@ class SessionMapper:
         base_session = SessionMapper.to_response(session)
         
         # Create mock risk assessment (in real implementation, this would come from security service)
-        from app.modules.identity.application.dtos.response import RiskAssessmentResponse
-        from app.modules.identity.domain.entities.user.user_enums import RiskLevel
+        from app.modules.identity.application.dtos.response import (
+            RiskAssessmentResponse,
+        )
         
         risk_assessment = RiskAssessmentResponse(
             success=True,
@@ -89,7 +92,7 @@ class SessionMapper:
             risk_factors=SessionMapper._get_risk_factors(session),
             recommendations=SessionMapper._get_security_recommendations(session),
             requires_action=session.risk_score > 0.7,
-            assessed_at=datetime.utcnow()
+            assessed_at=datetime.now(UTC)
         )
         
         # Activity summary
@@ -100,7 +103,7 @@ class SessionMapper:
                 (session.last_activity_at - session.created_at).total_seconds() / 60
             ),
             'idle_time_minutes': int(
-                (datetime.utcnow() - session.last_activity_at).total_seconds() / 60
+                (datetime.now(UTC) - session.last_activity_at).total_seconds() / 60
             ),
             'is_idle': session.is_idle_timeout,
             'recent_activities': session.metadata.get('recent_activities', [])
@@ -109,8 +112,12 @@ class SessionMapper:
         # Security events
         security_events = []
         if include_security_events:
-            from app.modules.identity.application.dtos.response import SecurityEventResponse
-            from app.modules.identity.domain.entities.user.user_enums import SecurityEventType
+            from app.modules.identity.application.dtos.response import (
+                SecurityEventResponse,
+            )
+            from app.modules.identity.domain.entities.user.user_enums import (
+                SecurityEventType,
+            )
             
             for event in session.security_events:
                 security_events.append(SecurityEventResponse(
@@ -147,8 +154,8 @@ class SessionMapper:
     
     @staticmethod
     def to_active_sessions_response(
-        sessions: List[Session],
-        current_session_id: Optional[str] = None
+        sessions: list[Session],
+        current_session_id: str | None = None
     ) -> ActiveSessionsResponse:
         """Convert list of Session entities to ActiveSessionsResponse DTO.
         
@@ -174,7 +181,7 @@ class SessionMapper:
     @staticmethod
     def to_concurrent_sessions_response(
         user_id: str,
-        sessions: List[Session],
+        sessions: list[Session],
         max_allowed: int = 5
     ) -> ConcurrentSessionsResponse:
         """Convert sessions to ConcurrentSessionsResponse DTO.
@@ -275,7 +282,9 @@ class SessionMapper:
         Returns:
             Calculated expiration datetime
         """
-        from app.modules.identity.domain.entities.session.session_enums import SessionType
+        from app.modules.identity.domain.entities.session.session_enums import (
+            SessionType,
+        )
         
         # Different expiration times based on session type
         timeout_map = {
@@ -302,17 +311,16 @@ class SessionMapper:
         
         if risk_score >= 0.8:
             return RiskLevel.CRITICAL
-        elif risk_score >= 0.6:
+        if risk_score >= 0.6:
             return RiskLevel.HIGH
-        elif risk_score >= 0.4:
+        if risk_score >= 0.4:
             return RiskLevel.MEDIUM
-        elif risk_score >= 0.2:
+        if risk_score >= 0.2:
             return RiskLevel.LOW
-        else:
-            return RiskLevel.VERY_LOW
+        return RiskLevel.VERY_LOW
     
     @staticmethod
-    def _get_risk_factors(session: Session) -> List[str]:
+    def _get_risk_factors(session: Session) -> list[str]:
         """Extract risk factors from session.
         
         Args:
@@ -344,7 +352,7 @@ class SessionMapper:
         return risk_factors
     
     @staticmethod
-    def _get_security_recommendations(session: Session) -> List[str]:
+    def _get_security_recommendations(session: Session) -> list[str]:
         """Generate security recommendations for session.
         
         Args:
@@ -374,3 +382,8 @@ class SessionMapper:
             recommendations.append("IP address may be suspicious - verify user location")
         
         return recommendations
+
+__all__ = [
+    "SessionMapper",
+]
+

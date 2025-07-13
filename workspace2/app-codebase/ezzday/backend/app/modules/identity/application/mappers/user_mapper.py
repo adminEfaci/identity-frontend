@@ -5,17 +5,19 @@ This module provides mapping functionality to convert User aggregate root
 and related entities to/from DTOs for API requests and responses.
 """
 
-from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 
-from app.modules.identity.domain.aggregates.user import User
-from app.modules.identity.domain.entities.user.profile import UserProfile
-from app.modules.identity.domain.entities.user.preference import UserPreference
 from app.modules.identity.application.dtos.response import (
-    UserResponse, UserDetailResponse, UserSummaryResponse,
-    UserProfileResponse, UserPreferencesResponse, UserActivityResponse,
-    ProfileCompletionResponse, UserSecurityProfileResponse
+    ProfileCompletionResponse,
+    UserActivityResponse,
+    UserDetailResponse,
+    UserPreferencesResponse,
+    UserProfileResponse,
+    UserResponse,
+    UserSecurityProfileResponse,
+    UserSummaryResponse,
 )
+from app.modules.identity.domain.aggregates.user import User
 
 
 class UserMapper:
@@ -62,8 +64,8 @@ class UserMapper:
         Returns:
             UserDetailResponse DTO
         """
-        from .role_mapper import RoleMapper
         from .permission_mapper import PermissionMapper
+        from .role_mapper import RoleMapper
         
         # Get roles and permissions if requested
         roles = []
@@ -235,7 +237,7 @@ class UserMapper:
         login_history = user.get_login_history(limit=100)
         
         # Count logins by time period
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         week_start = today_start - timedelta(days=7)
         month_start = today_start - timedelta(days=30)
@@ -430,7 +432,7 @@ class UserMapper:
         unusual_activity = (
             failed_attempts > 5 or
             user.get_password_age_days() > 180 or
-            (user.last_login and (datetime.utcnow() - user.last_login).days > 30)
+            (user.last_login and (datetime.now(UTC) - user.last_login).days > 30)
         )
         
         return UserSecurityProfileResponse(
@@ -483,3 +485,8 @@ class UserMapper:
             completed_fields += 1
         
         return completed_fields / total_fields
+
+__all__ = [
+    "UserMapper",
+]
+
